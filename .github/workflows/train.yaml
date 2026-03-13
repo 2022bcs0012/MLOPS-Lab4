@@ -36,7 +36,7 @@ jobs:
         run: mkdir -p output
 
       - name: Train model
-          run: python scripts/train.py
+        run: python scripts/train.py
 
       - name: Extract accuracy from metrics.json
         id: extract
