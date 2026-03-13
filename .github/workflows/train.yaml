@@ -1,4 +1,4 @@
-name: Train and Deploy Model
+name: Train Model
 
 on:
   push:
@@ -7,22 +7,14 @@ on:
     branches: [ main ]
 
 jobs:
-
-  # =============================
-  # JOB 1 — TRAIN (CI)
-  # =============================
   train:
     runs-on: ubuntu-latest
 
-    outputs:
-      accuracy: ${{ steps.extract.outputs.accuracy }}
-
     steps:
-    
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -32,87 +24,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Create output directory
-        run: mkdir -p output
-
-      - name: Train model
+      - name: Run training
         run: python scripts/train.py
 
-      - name: Extract accuracy from metrics.json
-        id: extract
-        run: |
-          ACC=$(python -c "import json;print(json.load(open('output/metrics.json'))['Accuracy'])")
-          echo "accuracy=$ACC" >> $GITHUB_OUTPUT
-          echo "Model Accuracy: $ACC"
+      - name: Show metrics
+        run: cat output/metrics.json
 
-      - name: Upload model artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: trained-model
+          name: model-artifacts
           path: |
             output/model.pkl
             output/metrics.json
-
-
-  # =============================
-  # JOB 2 — DEPLOY (CD)
-  # =============================
-  deploy:
-    needs: train
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Download trained artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: trained-model
-          path: output
-
-      - name: Display metrics
-        run: |
-          echo "Current Accuracy: ${{ needs.train.outputs.accuracy }}"
-          echo "Best Accuracy: ${{ vars.BEST_ACCURACY }}"
-
-      - name: Compare metrics
-        id: compare
-        run: |
-          CURR=${{ needs.train.outputs.accuracy }}
-          BEST=${{ vars.BEST_ACCURACY }}
-
-          if (( $(echo "$CURR <= $BEST" | bc -l) )); then
-            echo "----Metric did not improve"
-            echo "improved=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          echo "Metric improved"
-          echo "improved=true" >> $GITHUB_OUTPUT
-
-      - name: Stop deployment if metric not improved
-        if: steps.compare.outputs.improved == 'false'
-        run: |
-          echo "Deployment skipped."
-
-      - name: Login to DockerHub
-        if: steps.compare.outputs.improved == 'true'
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.LAB4_DOCKER_ACCESS_TOKEN }}
-
-      - name: Build Docker image
-        if: steps.compare.outputs.improved == 'true'
-        run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/ml-model:latest .
-
-      - name: Push Docker image
-        if: steps.compare.outputs.improved == 'true'
-        run: |
-          docker push ${{ secrets.DOCKER_USERNAME }}/ml-model:latest
-
-      - name: Update BEST_ACCURACY variable
-        if: steps.compare.outputs.improved == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.LAB4_GITHUB_ACCESS_TOKEN }}
-        run: |
-          gh variable set BEST_ACCURACY --body "${{ needs.train.outputs.accuracy }}"
