@@ -18,6 +18,7 @@ jobs:
       accuracy: ${{ steps.extract.outputs.accuracy }}
 
     steps:
+    
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -31,9 +32,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Create output directory
+        run: mkdir -p output
+
       - name: Train model
-        run: |
-          python scripts/train.py
+          run: python scripts/train.py
 
       - name: Extract accuracy from metrics.json
         id: extract
