@@ -70,7 +70,7 @@ jobs:
       - name: Build Docker image
         if: steps.compare.outputs.improved == 'true'
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/ml-model:latest .
+          docker build -f DockerFile -t ${{ secrets.DOCKER_USERNAME }}/ml-model:latest .
 
       - name: Push Docker image
         if: steps.compare.outputs.improved == 'true'
