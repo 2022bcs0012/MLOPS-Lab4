@@ -49,7 +49,7 @@ jobs:
           CURR=${{ steps.metrics.outputs.accuracy }}
           BEST=${{ vars.BEST_ACCURACY }}
 
-          echo "Current accuracy: $CURR"
+          echo "Current accuracy = $CURR"
           echo "Best accuracy: $BEST"
 
           if (( $(echo "$CURR <= $BEST" | bc -l) )); then
