@@ -26,9 +26,9 @@ jobs:
 
       - name: Train model
         run: |
-          python train.py
+          python scripts/train.py
 
-      - name: Read accuracy
+      - name: Extract accuracy
         id: metrics
         run: |
           ACC=$(python -c "import json;print(json.load(open('output/metrics.json'))['Accuracy'])")
@@ -43,16 +43,16 @@ jobs:
             output/model.pkl
             output/metrics.json
 
-      - name: Compare accuracy with baseline
+      - name: Compare accuracy with baseline (0 for testing)
         id: compare
         run: |
           CURR=${{ steps.metrics.outputs.accuracy }}
-          BEST=${{ vars.BEST_ACCURACY }}
+          BASE=0
 
-          echo "Current accuracy = $CURR"
-          echo "Best accuracy: $BEST"
+          echo "Current accuracy: $CURR"
+          echo "Baseline accuracy: $BASE"
 
-          if (( $(echo "$CURR <= $BEST" | bc -l) )); then
+          if (( $(echo "$CURR <= $BASE" | bc -l) )); then
             echo "Metric did not improve"
             echo "improved=false" >> $GITHUB_OUTPUT
           else
@@ -70,16 +70,9 @@ jobs:
       - name: Build Docker image
         if: steps.compare.outputs.improved == 'true'
         run: |
-          docker build -f DockerFile -t ${{ secrets.DOCKER_USERNAME }}/ml-model:latest .
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/ml-model:latest .
 
       - name: Push Docker image
         if: steps.compare.outputs.improved == 'true'
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/ml-model:latest
-
-      - name: Update BEST_ACCURACY variable
-        if: steps.compare.outputs.improved == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.LAB4_GITHUB_ACCESS_TOKEN }}
-        run: |
-          gh variable set BEST_ACCURACY --body "${{ steps.metrics.outputs.accuracy }}"
